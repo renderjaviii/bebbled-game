@@ -260,7 +260,7 @@ def getGameState(group_list, score, debug):
     return -1
 
 
-def solveGame(table,  n_attempts, n_tables, n_projections):
+def solveGame(table,  n_attempts, n_tables, n_projections, priority_no_singletons):
 
     best_score = -1
     best_general_playlist = []
@@ -273,7 +273,7 @@ def solveGame(table,  n_attempts, n_tables, n_projections):
             if len(best_general_playlist) > 0:
                 print("\nDescendant of the best previous generation")
                 table_attempt, score_attempt = projectGameUsingPlaylist(copyTable(table), best_general_playlist)
-                playlist_attempt = best_general_playlist
+                playlist_attempt = best_general_playlist.copy()
 
                 print("Score inherited: {}\nPlaylist inherited -> {}".format(score_attempt, playlist_attempt))
 
@@ -296,20 +296,25 @@ def solveGame(table,  n_attempts, n_tables, n_projections):
 
             score_and_playlist_attempt[score_attempt] = playlist_attempt
 
-        max_score_attempt = max(score_and_playlist_attempt.keys())
-        if max_score_attempt > best_score:
-            best_score = max_score_attempt
-            best_general_playlist = score_and_playlist_attempt[max_score_attempt]
+        if len(score_and_playlist_attempt) > 0:
+            max_score_attempt = max(score_and_playlist_attempt.keys())
+            if max_score_attempt > best_score:
+                best_score = max_score_attempt
+                best_general_playlist_attempt = score_and_playlist_attempt[max_score_attempt]
+
+                if len(best_general_playlist) == 0 or j == (n_tables - 1):
+                    best_general_playlist = best_general_playlist_attempt.copy()
 
     print("BEST SCORE FOUND", best_score)
     print(best_general_playlist)
+    printTable(projectGameUsingPlaylist(table, best_general_playlist)[0])
 
 
 def projectGameUsingPlaylist(table, playlist):
     score = 0
     for position in playlist:
         score += touchPosition(table, position, False)
-
+        printTable(table)
     return table, score
 
 
@@ -324,7 +329,7 @@ def printState(table, group_list, score):
 table = generateTable(10)
 printTable(table)
 
-solveGame(table, n_attempts=2, n_tables=5, n_projections=1)
+solveGame(table, n_attempts=5, n_tables=10, n_projections=2, priority_no_singletons=False)
 
 """Greedy
 groupList = makeGroups(table)
