@@ -189,7 +189,7 @@ def gravityEffect(table):
 
     return table
 
-def shiftToTheRight(table):
+def shiftToTheRight(table): # Revisar
     aux = len(table) - 1
     for i in range(1, len(table)):
         for j in range(len(table)):
@@ -204,6 +204,7 @@ def shiftToTheRight(table):
 
 def getTouchPuntuation(N):
     return N * (N - 1)
+
 
 
 # Genetic algorithm
@@ -296,6 +297,7 @@ def solveGame(table,  n_attempts, n_tables, n_projections, priority_no_singleton
 
             score_and_playlist_attempt[score_attempt] = playlist_attempt
 
+        # Acá se elige el mejor individuo que pasará a ser el padre de lo de más con base al score / fitness minimo singleton
         if len(score_and_playlist_attempt) > 0:
             max_score_attempt = max(score_and_playlist_attempt.keys())
             if max_score_attempt > best_score:
@@ -307,16 +309,14 @@ def solveGame(table,  n_attempts, n_tables, n_projections, priority_no_singleton
 
     print("BEST SCORE FOUND", best_score)
     print(best_general_playlist)
-    printTable(projectGameUsingPlaylist(table, best_general_playlist)[0])
+    printTable(projectGameUsingPlaylist(table, best_general_playlist)[0]) # Revisar inicidencia
 
 
 def projectGameUsingPlaylist(table, playlist):
     score = 0
     for position in playlist:
         score += touchPosition(table, position, False)
-        printTable(table)
     return table, score
-
 
 def printState(table, group_list, score):
     print("SCORE:", score)
@@ -329,7 +329,8 @@ def printState(table, group_list, score):
 table = generateTable(10)
 printTable(table)
 
-solveGame(table, n_attempts=5, n_tables=10, n_projections=2, priority_no_singletons=False)
+
+solveGame(table, n_attempts=2, n_tables=2, n_projections=2, priority_no_singletons=False)
 
 """Greedy
 groupList = makeGroups(table)
@@ -343,16 +344,9 @@ while len(groupList) > 0:
 
 print("Score-> {}".format(score))"""
 
-#Peso = (cantidad de fichas un color) / (cantidad total de fichas)
-
+# Peso = (cantidad de fichas un color) / (cantidad total de fichas)
 # Tocar las fichas de menor peso en orden ascendente
 # Tocar las fichas que estén imposibilitando la unión de 2 grupos que formarían un gran peso
+
 # Elegir el color con mayor peso e intentar romper la mayor cantidad de las otras
 # fichas, buscando que todas las fichas del color elegido queden juntas
-
-
-
-
-
-
-
