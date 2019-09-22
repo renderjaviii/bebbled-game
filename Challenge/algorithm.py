@@ -278,6 +278,7 @@ def solveGame(table,  n_attempts, n_tables, n_projections, priority_no_singleton
 
                 print("Score inherited: {}\nPlaylist inherited -> {}".format(score_attempt, playlist_attempt))
 
+                # End the iteration if the game has finished
                 game_state = getGameState(group_list_attempt, score_attempt, False)
                 if game_state == 0 or game_state == 1:
                     break
