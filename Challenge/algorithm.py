@@ -193,7 +193,6 @@ def shiftToTheRight(table):
 def getTouchPuntuation(N):
     return N * (N - 1)
 
-
 def getIndexMaximumGroup(group_list):
     max = -1
     for i in range(len(group_list)):
@@ -204,11 +203,12 @@ def getIndexMaximumGroup(group_list):
 
     return index, max
 
-table = ([1, 2, 1, 1], [1, 2, 1, 2], [1, 2, 1, 2], [2, 2, 2, 2])
-#n = 4
-#table = generateTable(n)
+#table = ([1, 2, 1, 1], [1, 2, 1, 2], [1, 2, 1, 2], [2, 2, 2, 2])
+n = 4
+table = generateTable(n)
 printTable(table)
 
+"""Greedy
 groupList = makeGroups(table)
 score = 0
 while len(groupList) > 0:
@@ -218,18 +218,11 @@ while len(groupList) > 0:
     printTable(table)
     score += getTouchPuntuation(amount_boxes)
 
-print("Score-> {}".format(score))
+print("Score-> {}".format(score))"""
 
-"""nGroup = 1
+groupList = makeGroups(table)
+nGroup = 1
 for i in groupList:
     print("Grupo # {}".format(nGroup))
     i.__str__()
     nGroup += 1
-
-touchPosition(table, groupList, [0, 2])
-
-gravityEffect(table)
-printTable(table)
-
-shiftToTheRight(table)
-printTable(table)"""
