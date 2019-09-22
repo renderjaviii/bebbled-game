@@ -14,6 +14,7 @@ def generateTable(n):
 def printTable(table):
     print("Printing table...")
     for i in range(len(table)):
+        print("    ", end="")
         for j in range(len(table)):
             print(int(table[i][j]), end=" ")
         print()
@@ -42,7 +43,7 @@ class ColorGroup():
 def isInvalidMovement(movement, n):
     return movement[0] < 0 or  movement[1] < 0 or movement[0] > (n - 1) or movement[1] > (n - 1)
 
-def existPosition(group_list, position):
+def existPositionInGroups(group_list, position):
     for group in group_list:
         for pos in group.positions:
             if pos == position:
@@ -88,7 +89,6 @@ def moveDown(movement, n):
         return None
     return Movement(movement.currentPos, next_pos)
 
-
 def getPossibleMovements(movement, n):
     movements_to_do = []
 
@@ -110,6 +110,7 @@ def getPossibleMovements(movement, n):
 
     return movements_to_do
 
+
 def makeGroups(table):
     group_list = []
     for i in range(len(table)):
@@ -119,14 +120,14 @@ def makeGroups(table):
                 visited_elements = []
                 pos = [i, j]
 
-                if not existPosition(group_list, pos):
+                if not existPositionInGroups(group_list, pos):
                     group_by = table[i][j]
-                    algorithm(table, group_by, Movement(None, pos), visited_elements)
+                    neighborScanAlgorithm(table, group_by, Movement(None, pos), visited_elements)
                     group_list.append(ColorGroup(group_by, visited_elements))
 
     return group_list
 
-def algorithm(table, group_by, move, movements_made):
+def neighborScanAlgorithm(table, group_by, move, movements_made):
     tmp_element = table[move.currentPos[0]][move.currentPos[1]]
 
     if move.currentPos not in movements_made and tmp_element == group_by:
@@ -134,7 +135,7 @@ def algorithm(table, group_by, move, movements_made):
         next_movements = getPossibleMovements(move, len(table))
 
         for next_movement in next_movements:
-            algorithm(table, group_by, next_movement, movements_made)
+            neighborScanAlgorithm(table, group_by, next_movement, movements_made)
 
 
 def getPositionGroup(group_list, position):
@@ -145,11 +146,20 @@ def getPositionGroup(group_list, position):
 def touchPosition(table, group_list, position):
     print("Touching a position {}...".format(position))
     group_position = getPositionGroup(group_list, position)
-    for position in group_list[group_position].positions:
-        table[position[0]][position[1]] = 0
+    group = group_list[group_position].positions
 
-    gravityEffect(table)
-    shiftToTheRight(table)
+    amount_boxes = len(group)
+    if amount_boxes > 1:
+        for position in group:
+            table[position[0]][position[1]] = 0
+
+        group_list.pop(group_position) # Deleting group touched
+        gravityEffect(table)
+        shiftToTheRight(table)
+
+    # Return the touch score
+    return getTouchPuntuation(amount_boxes)
+
 
 def gravityEffect(table):
     for i in reversed(range(len(table))):
@@ -171,29 +181,33 @@ def gravityEffect(table):
     return table
 
 def shiftToTheRight(table):
-    for i in reversed(range(len(table))):
-        for j in reversed(range(len(table))):
-
-            current_value = table[i][j]
-            if current_value != 0:
-                jumps = 1
-
-                if (j + jumps) < (len(table)):
-                    while table[i][j + jumps] == 0:
-                        table[i][j + jumps] = current_value
-                        table[i][j + jumps - 1] = 0
-                        jumps += 1
-
-                        if (j + jumps) > (len(table) - 1):
-                            break
-
+    aux = len(table) - 1
+    for i in range(1, len(table)):
+        for j in range(len(table)):
+            if table[j][aux] != 0:
+                break
+            elif j == (len(table) - 1):
+                for k in range(len(table)):
+                    table[k][aux] = table[k][aux - 1]
+                    table[k][aux - 1] = 0
+        aux -= 1
     return table
-
 
 def getTouchPuntuation(N):
     return N * (N - 1)
 
-def getIndexMaximumGroup(group_list):
+
+# Genetic algorithm
+def generateNextState(current_table):
+    current_group_list = makeGroups(table)
+
+    index_group = random.randint(0, len(current_group_list) - 1)
+    position_to_touch = current_group_list[index_group].positions[0]
+    current_score = touchPosition(table, current_group_list, position_to_touch)
+
+    return current_table, makeGroups(table), current_score
+
+def getLargerGroupIndex(group_list):
     max = -1
     for i in range(len(group_list)):
         max_tmp = len(group_list[i].positions)
@@ -203,10 +217,64 @@ def getIndexMaximumGroup(group_list):
 
     return index, max
 
-#table = ([1, 2, 1, 1], [1, 2, 1, 2], [1, 2, 1, 2], [2, 2, 2, 2])
-n = 4
-table = generateTable(n)
+def getSizeBoxesByColor(group_list):
+    size_groups_by_color = {}
+
+    for group in group_list:
+        color_number = group.colorNumber
+        if color_number in size_groups_by_color.keys():
+            size_groups_by_color[color_number] = (size_groups_by_color[color_number] + len(group.positions))
+        else: size_groups_by_color[color_number] = len(group.positions)
+
+    return  size_groups_by_color
+
+def hasOnlySingletons(group_list):
+    for g in group_list:
+        if len(g.positions) > 1:
+            return False
+    return True
+
+def gameWon(group_list):
+    return len(group_list) == 0
+
+def getGameState(i, group_list):
+    resp = "in " + str(i + 1) + " iterations"
+
+    if gameWon(group_list):
+        print("Game WIN", resp)
+        return 0
+    elif hasOnlySingletons(group_list):
+        print("Game finished by singletons state", resp)
+        return 1
+    else:
+        print("NOT have finished", resp)
+
+    return -1
+
+def solveGame(table):
+    max_score = -1
+    max_position = -1
+    n_times = 3
+
+    for i in range(n_times):
+        table, group_list, score = generateNextState(table)
+
+        printState(table, group_list, score)
+        game_state = getGameState(i, group_list)
+
+        if game_state == 0 or game_state == 1:
+            break
+
+def printState(table, group_list, score):
+    print("SCORE:", score)
+    printTable(table)
+    for g in group_list:
+        print(g.colorNumber, "->", g.positions)
+
+
+table = ([2, 2, 1, 1], [1, 2, 1, 2], [1, 2, 1, 2], [2, 2, 1, 2])
 printTable(table)
+solveGame(table)
 
 """Greedy
 groupList = makeGroups(table)
@@ -219,10 +287,3 @@ while len(groupList) > 0:
     score += getTouchPuntuation(amount_boxes)
 
 print("Score-> {}".format(score))"""
-
-groupList = makeGroups(table)
-nGroup = 1
-for i in groupList:
-    print("Grupo # {}".format(nGroup))
-    i.__str__()
-    nGroup += 1
