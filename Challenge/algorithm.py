@@ -1,5 +1,4 @@
-#import sys
-#sys.setrecursionlimit(10000) # 10000 is an example, try with different value
+#Author: Javier Ardila {javier.ardila@flexibility.com.ar}
 
 import random
 import numpy
@@ -9,7 +8,7 @@ def generateTable(n):
     table = numpy.zeros((n, n))
     for i in range(n):
         for j in range(n):
-            table[i][j] = random.randint(1, 5)
+            table[i][j] = random.randint(1, 2)
     return table
 
 def printTable(table):
@@ -115,13 +114,15 @@ def makeGroups(table):
     group_list = []
     for i in range(len(table)):
         for j in range(len(table)):
-            visited_elements = []
-            pos = [i, j]
+            if table[i][j] != 0:
 
-            if not existPosition(group_list, pos):
-                group_by = table[i][j]
-                algorithm(table, group_by, Movement(None, pos), visited_elements)
-                group_list.append(ColorGroup(group_by, visited_elements))
+                visited_elements = []
+                pos = [i, j]
+
+                if not existPosition(group_list, pos):
+                    group_by = table[i][j]
+                    algorithm(table, group_by, Movement(None, pos), visited_elements)
+                    group_list.append(ColorGroup(group_by, visited_elements))
 
     return group_list
 
@@ -147,35 +148,83 @@ def touchPosition(table, group_list, position):
     for position in group_list[group_position].positions:
         table[position[0]][position[1]] = 0
 
+    gravityEffect(table)
+    shiftToTheRight(table)
+
 def gravityEffect(table):
-    for i in reversed(range(1, len(table))):
+    for i in reversed(range(len(table))):
         for j in reversed(range(len(table))):
-            if table[i][j] == 0:
-                table[i][j] = table[i - 1][j]
-                table[i - 1][j] = 0
+
+            current_value = table[i][j]
+            if current_value != 0:
+                jumps = 1
+
+                if (i + jumps) < (len(table)):
+                    while table[i + jumps][j] == 0:
+                        table[i + jumps][j] = current_value
+                        table[i + jumps - 1][j] = 0
+                        jumps += 1
+
+                        if (i + jumps) > (len(table) - 1):
+                            break
+
     return table
 
 def shiftToTheRight(table):
     for i in reversed(range(len(table))):
-        for j in reversed(range(1, len(table))):
-            if table[i][j] == 0:
-                table[i][j] = table[i][j - 1]
-                table[i][j - 1] = 0
+        for j in reversed(range(len(table))):
+
+            current_value = table[i][j]
+            if current_value != 0:
+                jumps = 1
+
+                if (j + jumps) < (len(table)):
+                    while table[i][j + jumps] == 0:
+                        table[i][j + jumps] = current_value
+                        table[i][j + jumps - 1] = 0
+                        jumps += 1
+
+                        if (j + jumps) > (len(table) - 1):
+                            break
+
     return table
 
 
+def getTouchPuntuation(N):
+    return N * (N - 1)
+
+
+def getIndexMaximumGroup(group_list):
+    max = -1
+    for i in range(len(group_list)):
+        max_tmp = len(group_list[i].positions)
+        if max_tmp > max:
+            index = i
+            max = max_tmp
+
+    return index, max
+
+table = ([1, 2, 1, 1], [1, 2, 1, 2], [1, 2, 1, 2], [2, 2, 2, 2])
 #n = 4
 #table = generateTable(n)
-table = ([1, 1, 2], [1, 1, 2], [2, 2, 1])
-
 printTable(table)
+
 groupList = makeGroups(table)
+score = 0
+while len(groupList) > 0:
+    index_group, amount_boxes = getIndexMaximumGroup(groupList)
+    touchPosition(table, groupList, groupList[index_group].positions[0])
+    groupList = makeGroups(table)
+    printTable(table)
+    score += getTouchPuntuation(amount_boxes)
+
+print("Score-> {}".format(score))
 
 """nGroup = 1
 for i in groupList:
     print("Grupo # {}".format(nGroup))
     i.__str__()
-    nGroup += 1"""
+    nGroup += 1
 
 touchPosition(table, groupList, [0, 2])
 
@@ -183,4 +232,4 @@ gravityEffect(table)
 printTable(table)
 
 shiftToTheRight(table)
-printTable(table)
+printTable(table)"""
