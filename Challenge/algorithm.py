@@ -3,12 +3,12 @@
 import random
 import numpy
 
-def generateTable(n):
+def generateTable(n, n_colors):
     print("Initializing table...")
     table = numpy.zeros((n, n))
     for i in range(n):
         for j in range(n):
-            table[i][j] = random.randint(1, 2)
+            table[i][j] = random.randint(1, n_colors)
     return table
 
 def printTable(table):
@@ -189,17 +189,17 @@ def gravityEffect(table):
 
     return table
 
-def shiftToTheRight(table): # Revisar
-    aux = len(table) - 1
-    for i in range(1, len(table)):
+def shiftToTheRight(table):
+    for i in range(len(table)):
         for j in range(len(table)):
-            if table[j][aux] != 0:
+            if table[j][i] != 0:
                 break
-            elif j == (len(table) - 1):
+            elif i != 0 and (j == (len(table) - 1)):
                 for k in range(len(table)):
-                    table[k][aux] = table[k][aux - 1]
-                    table[k][aux - 1] = 0
-        aux -= 1
+                    for l in reversed(range(1, i + 1)):
+                        table[k][l] = table[k][l - 1]
+                        table[k][l - 1] = 0
+
     return table
 
 def getTouchPuntuation(N):
@@ -278,7 +278,6 @@ def solveGame(table,  n_attempts, n_tables, n_projections, priority_no_singleton
 
                 print("Score inherited: {}\nPlaylist inherited -> {}".format(score_attempt, playlist_attempt))
 
-                # End the iteration if the game has finished
                 game_state = getGameState(group_list_attempt, score_attempt, False)
                 if game_state == 0 or game_state == 1:
                     break
@@ -298,7 +297,6 @@ def solveGame(table,  n_attempts, n_tables, n_projections, priority_no_singleton
 
             score_and_playlist_attempt[score_attempt] = playlist_attempt
 
-        # Acá se elige el mejor individuo que pasará a ser el padre de lo de más con base al score / fitness minimo singleton
         if len(score_and_playlist_attempt) > 0:
             max_score_attempt = max(score_and_playlist_attempt.keys())
             if max_score_attempt > best_score:
@@ -326,12 +324,14 @@ def printState(table, group_list, score):
         print(g.colorNumber, "->", g.positions)
 
 
-#table = ([2, 2, 1, 1], [1, 2, 1, 2], [1, 2, 1, 2], [2, 2, 1, 2])
-table = generateTable(10)
+table = ([2, 2, 1, 1], [1, 2, 1, 1], [1, 2, 1, 1], [2, 2, 1, 1])
+#table = generateTable(4, 5)
+printTable(table)
+touchPosition(table, [3,3], False)
 printTable(table)
 
 
-solveGame(table, n_attempts=2, n_tables=2, n_projections=2, priority_no_singletons=False)
+#solveGame(table, n_attempts=2, n_tables=2, n_projections=2, priority_no_singletons=False)
 
 """Greedy
 groupList = makeGroups(table)
