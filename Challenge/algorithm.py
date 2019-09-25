@@ -1,7 +1,10 @@
 #Author: Javier Ardila {javier.ardila@flexibility.com.ar}
 
 import random
+from builtins import print
+
 import numpy
+import math
 
 def generateTable(n, n_colors):
     print("Initializing table...")
@@ -162,11 +165,9 @@ def touchPosition(table, position, debug):
         for position in group:
             table[position[0]][position[1]] = 0
 
-        group_list.pop(group_position) # Deleting group touched
         gravityEffect(table)
         shiftToTheRight(table)
 
-    # Return the touch score
     return getTouchPuntuation(amount_boxes)
 
 
@@ -208,15 +209,54 @@ def getTouchPuntuation(N):
 
 
 # Genetic algorithm
-def generateNextState(current_table, current_playlist):
-    current_group_list = makeGroups(current_table)
-    index_group = random.randint(0, len(current_group_list) - 1)
-    position_to_touch = current_group_list[index_group].positions[0]
-    current_score = touchPosition(current_table, position_to_touch, True)
+def createInitialPopulation(table):
+    print("\nCreating initial population")
+    group_list = makeGroups(table)
+    population_amount = math.ceil(len(group_list) * 0.5) # Generate maximum half of possible individuals
 
-    current_playlist.append(position_to_touch)
+    initial_population = []
+    for i in range(population_amount):
+        rand_individual = random.randint(0, len(group_list) - 1)
 
-    return current_table, makeGroups(current_table), current_score
+        if rand_individual not in initial_population and len(group_list[rand_individual].positions) > 1:
+            initial_population.append(group_list.pop(rand_individual).positions[0])
+
+    if len(initial_population) == 0: # Repeat process if dont have individuals
+        createInitialPopulation(table)
+
+    print("-> {}".format(initial_population))
+    return initial_population
+
+def projectGame(table, initial_state, n_projections, n_attempts):
+    initial_score = 0
+    for state in initial_state:
+        initial_score += touchPosition(table, state, False)
+
+    play_list = []
+    for time in range(n_projections):
+        table_copy = copyTable(table)
+        movements_list = []
+        movements_list.extend(initial_state)
+
+        for attempt in range(n_attempts):
+            group_list = makeGroups(table_copy)
+            if len(group_list) > 0:
+                group_position = random.randint(0, len(group_list) - 1)
+
+                table_position = group_list.pop(group_position).positions[0]
+                if touchPosition(table_copy, table_position, False) != 0:
+                    movements_list.append(table_position)
+
+            if getGameState(group_list, 0, False) == (0 or 1):
+                break
+
+        if len(movements_list) != 0:
+            play_list.append(movements_list)
+
+        if len(play_list) == 0: # Revisar en caso de no haber más opciones para no caer en ciclo infinito
+            projectGame(table, initial_state, n_projections, n_attempts)
+
+    return play_list
 
 def getLargerGroupIndex(group_list):
     max = -1
@@ -261,41 +301,59 @@ def getGameState(group_list, score, debug):
     return -1
 
 
-def solveGame(table,  n_attempts, n_tables, n_projections, priority_no_singletons):
+def getFitnessAndHighLights(table, play_list, is_score_priority):
+    highlights = []
+    max_score = -1
 
-    best_score = -1
-    best_general_playlist = []
-    for i in range(n_attempts):
+    for time in play_list:
+        score = playGame(copyTable(table), time)[1]
+
+        if score >= max_score:
+            max_score = score
+            if len(time) < len(highlights) or len(highlights) == 0:  # The minimum moves
+                highlights = time
+
+    return highlights, max_score
+
+
+def solveGame(table, n_population, n_generations, n_projections, priority_no_singletons):
+
+    best_general_play_list = []
+    best_fitness = -1
+    for initial_individual in createInitialPopulation(table):
+        possibles_play_list = projectGame(copyTable(table), [initial_individual], n_projections, n_generations)
+        fitness_val = getFitnessAndHighLights(table, possibles_play_list, False)[1]
+        if fitness_val > best_fitness:
+            best_fitness = fitness_val
+            best_initial_individual = initial_individual
+
+    best_general_play_list.append(best_initial_individual)
+    print("The best is: ", best_initial_individual)
+
+    for i in range(n_population + 1):
         print("\nAttempt #{}".format(i + 1))
-        print("---------------------------")
         score_and_playlist_attempt = {}
 
-        for j in range(n_tables):
-            if len(best_general_playlist) > 0:
-                print("\nDescendant of the best previous generation")
-                table_attempt, score_attempt = projectGameUsingPlaylist(copyTable(table), best_general_playlist)
-                playlist_attempt = best_general_playlist.copy()
+        for j in range(n_generations):
+            print("\nDescendant of the previous generation")
+            table_attempt, score_attempt = playGame(copyTable(table), best_general_play_list)
 
-                print("Score inherited: {}\nPlaylist inherited -> {}".format(score_attempt, playlist_attempt))
+            print("Score inherited: {}\nPlaylist inherited -> {}".format(score_attempt, best_general_play_list))
+            printTable(table_attempt)
 
-                game_state = getGameState(group_list_attempt, score_attempt, False)
-                if game_state == 0 or game_state == 1:
-                    break
-            else:
-                print("\nPossible initial population")
-                score_attempt = 0
-                playlist_attempt = []
-                table_attempt = copyTable(table)
+            possibles_play_list = projectGame(copyTable(table), best_general_play_list, n_projections, n_generations)
+            play_list, fitness_val = getFitnessAndHighLights(copyTable(table), possibles_play_list, False)
 
-            for k in range(n_projections):
-                table_attempt, group_list_attempt, score = generateNextState(table_attempt, playlist_attempt)
-                score_attempt += score
+            printTable(playGame(copyTable(table), play_list)[0])
+            game_state = getGameState(makeGroups(table_attempt), fitness_val, True)
+            if game_state == (0 or 1):
+                break
 
-                game_state = getGameState(group_list_attempt, score_attempt, True)
-                if game_state == 0 or game_state == 1:
-                    break
-
-            score_and_playlist_attempt[score_attempt] = playlist_attempt
+                if fitness_val not in score_and_playlist_attempt.keys():
+                    score_and_playlist_attempt[fitness_val] = play_list
+                else: # Chose ever the shortest movements ?
+                    if len(score_and_playlist_attempt[fitness_val]) > len(play_list):
+                        score_and_playlist_attempt[fitness_val] = play_list
 
         if len(score_and_playlist_attempt) > 0:
             max_score_attempt = max(score_and_playlist_attempt.keys())
@@ -303,15 +361,15 @@ def solveGame(table,  n_attempts, n_tables, n_projections, priority_no_singleton
                 best_score = max_score_attempt
                 best_general_playlist_attempt = score_and_playlist_attempt[max_score_attempt]
 
-                if len(best_general_playlist) == 0 or j == (n_tables - 1):
+                if len(best_general_playlist) == 0 or j == (n_generations - 1):
                     best_general_playlist = best_general_playlist_attempt.copy()
 
     print("BEST SCORE FOUND", best_score)
     print(best_general_playlist)
-    printTable(projectGameUsingPlaylist(table, best_general_playlist)[0]) # Revisar inicidencia
+    printTable(playGame(table, best_general_playlist)[0]) # Revisar inicidencia
 
 
-def projectGameUsingPlaylist(table, playlist):
+def playGame(table, playlist):
     score = 0
     for position in playlist:
         score += touchPosition(table, position, False)
@@ -324,14 +382,12 @@ def printState(table, group_list, score):
         print(g.colorNumber, "->", g.positions)
 
 
-table = ([2, 2, 1, 1], [1, 2, 1, 1], [1, 2, 1, 1], [2, 2, 1, 1])
-#table = generateTable(4, 5)
-printTable(table)
-touchPosition(table, [3,3], False)
+#table = ([2, 2, 1, 1], [2, 2, 1, 1], [2, 2, 1, 1], [2, 2, 1, 1])
+table = generateTable(4, 2)
 printTable(table)
 
+solveGame(table, n_population=2, n_generations=2, n_projections=2, priority_no_singletons=False)
 
-#solveGame(table, n_attempts=2, n_tables=2, n_projections=2, priority_no_singletons=False)
 
 """Greedy
 groupList = makeGroups(table)
