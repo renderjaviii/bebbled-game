@@ -2,6 +2,7 @@
 
 import random
 from builtins import print
+import sys
 
 import numpy
 import math
@@ -12,6 +13,8 @@ def generateTable(n, n_colors):
     for i in range(n):
         for j in range(n):
             table[i][j] = random.randint(1, n_colors)
+
+    printTable(table)
     return table
 
 def printTable(table):
@@ -165,8 +168,11 @@ def touchPosition(table, position, debug):
         for position in group:
             table[position[0]][position[1]] = 0
 
+        if debug: printTable(table)
         gravityEffect(table)
+        if debug: printTable(table)
         shiftToTheRight(table)
+        if debug: printTable(table)
 
     return getTouchPuntuation(amount_boxes)
 
@@ -207,86 +213,23 @@ def getTouchPuntuation(N):
     return N * (N - 1)
 
 
-
-# Genetic algorithm
-def createInitialPopulation(table):
-    print("\nCreating initial population")
-    group_list = makeGroups(table)
-    population_amount = math.ceil(len(group_list) * 0.5) # Generate maximum half of possible individuals
-
-    initial_population = []
-    for i in range(population_amount):
-        rand_individual = random.randint(0, len(group_list) - 1)
-
-        if rand_individual not in initial_population and len(group_list[rand_individual].positions) > 1:
-            initial_population.append(group_list.pop(rand_individual).positions[0])
-
-    if len(initial_population) == 0: # Repeat process if dont have individuals
-        createInitialPopulation(table)
-
-    print("-> {}".format(initial_population))
-    return initial_population
-
-def projectGame(table, initial_state, n_projections, n_attempts):
-    initial_score = 0
-    for state in initial_state:
-        initial_score += touchPosition(table, state, False)
-
-    play_list = []
-    for time in range(n_projections):
-        table_copy = copyTable(table)
-        movements_list = []
-        movements_list.extend(initial_state)
-
-        for attempt in range(n_attempts):
-            group_list = makeGroups(table_copy)
-            if len(group_list) > 0:
-                group_position = random.randint(0, len(group_list) - 1)
-
-                table_position = group_list.pop(group_position).positions[0]
-                if touchPosition(table_copy, table_position, False) != 0:
-                    movements_list.append(table_position)
-
-            if getGameState(group_list, 0, False) == (0 or 1):
-                break
-
-        if len(movements_list) != 0:
-            play_list.append(movements_list)
-
-        if len(play_list) == 0: # Revisar en caso de no haber más opciones para no caer en ciclo infinito
-            projectGame(table, initial_state, n_projections, n_attempts)
-
-    return play_list
-
-def getLargerGroupIndex(group_list):
-    max = -1
-    for i in range(len(group_list)):
-        max_tmp = len(group_list[i].positions)
-        if max_tmp > max:
-            index = i
-            max = max_tmp
-
-    return index, max
-
-def getSizeBoxesByColor(group_list):
-    size_groups_by_color = {}
-
+# Solving game
+def getValidGroups(group_list):
+    valid_groups = []
     for group in group_list:
-        color_number = group.colorNumber
-        if color_number in size_groups_by_color.keys():
-            size_groups_by_color[color_number] = (size_groups_by_color[color_number] + len(group.positions))
-        else: size_groups_by_color[color_number] = len(group.positions)
+        if len(group.positions) > 1:
+            valid_groups.append(group)
 
-    return  size_groups_by_color
+    return valid_groups
+
+def gameWon(group_list):
+    return len(group_list) == 0
 
 def hasOnlySingletons(group_list):
     for g in group_list:
         if len(g.positions) > 1:
             return False
     return True
-
-def gameWon(group_list):
-    return len(group_list) == 0
 
 def getGameState(group_list, score, debug):
     if gameWon(group_list):
@@ -300,106 +243,224 @@ def getGameState(group_list, score, debug):
 
     return -1
 
+def printGameState(table, movements_list, score):
+    if gameWon(makeGroups(table)):
+        print("WIN!!!")
+    elif hasOnlySingletons(makeGroups(table)):
+        print("WIN with singletons :/")
 
-def getFitnessAndHighLights(table, play_list, is_score_priority):
-    highlights = []
-    max_score = -1
+    print("SCORE:", score)
+    printTable(table)
+    print("Play list |-", end="")
 
-    for time in play_list:
-        score = playGame(copyTable(table), time)[1]
+    for movement in movements_list:
+        print("-> {} ".format(movement), end="")
 
-        if score >= max_score:
-            max_score = score
-            if len(time) < len(highlights) or len(highlights) == 0:  # The minimum moves
-                highlights = time
-
-    return highlights, max_score
-
-
-def solveGame(table, n_population, n_generations, n_projections, priority_no_singletons):
-
-    best_general_play_list = []
-    best_fitness = -1
-    for initial_individual in createInitialPopulation(table):
-        possibles_play_list = projectGame(copyTable(table), [initial_individual], n_projections, n_generations)
-        fitness_val = getFitnessAndHighLights(table, possibles_play_list, False)[1]
-        if fitness_val > best_fitness:
-            best_fitness = fitness_val
-            best_initial_individual = initial_individual
-
-    best_general_play_list.append(best_initial_individual)
-    print("The best is: ", best_initial_individual)
-
-    for i in range(n_population + 1):
-        print("\nAttempt #{}".format(i + 1))
-        score_and_playlist_attempt = {}
-
-        for j in range(n_generations):
-            print("\nDescendant of the previous generation")
-            table_attempt, score_attempt = playGame(copyTable(table), best_general_play_list)
-
-            print("Score inherited: {}\nPlaylist inherited -> {}".format(score_attempt, best_general_play_list))
-            printTable(table_attempt)
-
-            possibles_play_list = projectGame(copyTable(table), best_general_play_list, n_projections, n_generations)
-            play_list, fitness_val = getFitnessAndHighLights(copyTable(table), possibles_play_list, False)
-
-            printTable(playGame(copyTable(table), play_list)[0])
-            game_state = getGameState(makeGroups(table_attempt), fitness_val, True)
-            if game_state == (0 or 1):
-                break
-
-                if fitness_val not in score_and_playlist_attempt.keys():
-                    score_and_playlist_attempt[fitness_val] = play_list
-                else: # Chose ever the shortest movements ?
-                    if len(score_and_playlist_attempt[fitness_val]) > len(play_list):
-                        score_and_playlist_attempt[fitness_val] = play_list
-
-        if len(score_and_playlist_attempt) > 0:
-            max_score_attempt = max(score_and_playlist_attempt.keys())
-            if max_score_attempt > best_score:
-                best_score = max_score_attempt
-                best_general_playlist_attempt = score_and_playlist_attempt[max_score_attempt]
-
-                if len(best_general_playlist) == 0 or j == (n_generations - 1):
-                    best_general_playlist = best_general_playlist_attempt.copy()
-
-    print("BEST SCORE FOUND", best_score)
-    print(best_general_playlist)
-    printTable(playGame(table, best_general_playlist)[0]) # Revisar inicidencia
-
-
-def playGame(table, playlist):
+def playGameUsingPlayList(table, playlist):
     score = 0
     for position in playlist:
         score += touchPosition(table, position, False)
     return table, score
 
-def printState(table, group_list, score):
-    print("SCORE:", score)
-    printTable(table)
-    for g in group_list:
-        print(g.colorNumber, "->", g.positions)
+def getAmountOfSingletons(group_list):
+    singletons_amount = 0
+    for group in group_list:
+        if len(group.positions) == 1:
+            singletons_amount += 1
+    return singletons_amount
 
 
-#table = ([2, 2, 1, 1], [2, 2, 1, 1], [2, 2, 1, 1], [2, 2, 1, 1])
-table = generateTable(4, 2)
+# Greedy collection tools
+def getLargerGroupIndexAndPosition(group_list):
+
+    position = -1
+    max = -1
+    for group in group_list:
+        max_tmp = len(group.positions)
+        if max_tmp > max:
+            position = group.positions[0]
+            max = max_tmp
+
+    return position
+
+def solveGameWithGreedy(table, priority_best_score, debug):
+
+    play_list = []
+
+    if priority_best_score:
+        best_score = 0
+        while True:
+            larger_group_position = getLargerGroupIndexAndPosition(makeGroups(table))
+
+            if larger_group_position != -1:
+                best_score += touchPosition(table, larger_group_position, debug=debug)
+                play_list.append(larger_group_position)
+
+                game_state = getGameState(makeGroups(table), best_score, debug=debug)
+                if game_state == 0 or game_state == 1:
+                    return play_list
+
+    else:
+        while True:
+            group_list = makeGroups(table)
+
+            minimum_singletons = sys.maxsize
+            movement = -1
+
+            for group in group_list:
+                table_copy = copyTable(table)
+                touchPosition(table_copy, group.positions[0], debug=True)
+
+                singletons = getAmountOfSingletons(makeGroups(table_copy))
+                if singletons < minimum_singletons:
+                    minimum_singletons = singletons
+                    movement = group.positions[0]
+
+                game_state = getGameState(makeGroups(table_copy), minimum_singletons, debug=debug)
+                if game_state == 0 or game_state == 1:
+                    return play_list
+
+            if movement != -1:
+                touchPosition(table, movement, False)
+                play_list.append(movement)
+
+
+# Genetic algorithm
+def createInitialPopulation(group_list):
+    print("\nCreating initial population", end=" ")
+    valid_groups = getValidGroups(group_list)
+    population_amount = math.ceil(len(valid_groups) * 0.5)
+
+    initial_population = []
+    for i in range(population_amount):
+        group_index = random.randint(0, len(valid_groups) - 1)
+        group = valid_groups[group_index].positions;
+        table_position = group[0]
+
+        if len(valid_groups) > 1 and (table_position not in initial_population):
+            initial_population.append(table_position)
+            valid_groups.pop(group_index)
+
+    if len(initial_population) == 0: # Repeat process if dont have individuals, infinite possible cycle
+        createInitialPopulation(group_list)
+
+    print("-> {}".format(initial_population))
+    return initial_population
+
+def generateNextState(table):
+    valid_groups = getValidGroups(makeGroups(table))
+
+    if len(valid_groups) > 0:
+        group_index = random.randint(0, len(valid_groups) - 1)
+        table_position = valid_groups[group_index].positions[0]
+        touchPosition(table, table_position, False)
+        return table_position
+
+    return -1  # If there arent more options
+
+def projectGame(table, initial_states, n_projections, n_attempts, debug):
+    table_copy = copyTable(table)
+
+    for state in initial_states:
+        touchPosition(table_copy, state, debug)
+
+    play_list = []
+    for time in range(n_projections):
+        if debug: print("Projection # {}".format(time + 1))
+
+        table_tmp = copyTable(table_copy)
+        movement_list = initial_states.copy()
+
+        for attempt in range(n_attempts):
+            if debug: print("Attempt -> {}".format(attempt + 1))
+            table_position = generateNextState(table_tmp)
+
+            if table_position != -1:
+                movement_list.append(table_position)
+            else: break
+
+        if len(movement_list) > 0 and (movement_list not in play_list):
+            play_list.append(movement_list)
+
+    return play_list
+
+def getFitnessAndHighLights(table, play_list, is_score_priority):
+    highlights = []
+    max_score = -1
+    minimum_singletons = sys.maxsize
+
+    for time in play_list:
+        table_copy, score = playGameUsingPlayList(copyTable(table), time)
+
+        if is_score_priority:
+            if score >= max_score:
+                max_score = score
+                if len(time) < len(highlights) or len(highlights) == 0:  # The minimum moves ever ?
+                    highlights = time
+        else:
+            singletons = getAmountOfSingletons(makeGroups(table_copy))
+
+            if singletons <= minimum_singletons:
+                minimum_singletons = singletons
+                if len(time) < len(highlights) or len(highlights) == 0:  # The minimum moves ever ?
+                    highlights = time
+
+    fitness_value = max_score
+    if max_score == -1:
+        fitness_value = minimum_singletons
+
+    return fitness_value, highlights
+
+def solveGameWithGA(table, n_population, n_generations, n_projections, is_score_priority, debug):
+
+    best_general_play_list = []
+    best_fitness = -1
+    for initial_individual in createInitialPopulation(makeGroups(table)):
+        possibles_play_list = projectGame(table, [initial_individual], n_projections, n_generations, debug=debug)
+        fitness_val = getFitnessAndHighLights(table, possibles_play_list, is_score_priority)[0]
+        if fitness_val > best_fitness:
+            best_fitness = fitness_val
+            best_initial_individual = initial_individual
+
+    if debug: print("The initial individual is: {}, with {} points".format(best_initial_individual, best_fitness))
+
+    best_general_play_list.append(best_initial_individual)
+    touchPosition(table, best_initial_individual, debug) # Set table current status
+
+    while getGameState(makeGroups(table), 0, debug=debug) == -1:
+        for i in range(n_population + 1):
+            if debug: print("\nPopulation #{}\n".format(i + 1))
+            populations_generations = []
+
+            for j in range(n_generations):
+                if debug: print("Descendant # {} of the previous generation\nScore inherited: {}\nPlay list inherited -> {}"
+                                .format(j + 1, best_fitness, best_general_play_list))
+
+                play_lists = projectGame(table, [], n_projections, n_generations, debug=debug) # Projections
+                for play_list in play_lists:
+                    if play_list not in populations_generations:
+                        populations_generations.append(play_list)
+
+            if len(populations_generations) > 0:
+                best__play_list_population = getFitnessAndHighLights(copyTable(table), populations_generations, is_score_priority)[1]
+                next_movement = best__play_list_population[0]
+                best_general_play_list.append(next_movement)  # Add only the first movement
+
+                best_fitness += touchPosition(table, next_movement, debug=debug)  # Set score and table current status
+                if debug: print("\nBest so far -> {} with: {} points".format(best_general_play_list, best_fitness))
+
+
+    printGameState(table, best_general_play_list, fitness_val)
+
+
+# TESTING
+table = ([2, 2, 1, 1], [2, 2, 1, 1], [1, 1, 1, 1], [2, 1, 2, 2])
 printTable(table)
+# table = generateTable(5, 5)
 
-solveGame(table, n_population=2, n_generations=2, n_projections=2, priority_no_singletons=False)
+#solveGameWithGA(table, n_population=2, n_generations=5, n_projections=20, is_score_priority=False, debug=False)
 
-
-"""Greedy
-groupList = makeGroups(table)
-score = 0
-while len(groupList) > 0:
-    index_group, amount_boxes = getIndexMaximumGroup(groupList)
-    touchPosition(table, groupList, groupList[index_group].positions[0])
-    groupList = makeGroups(table)
-    printTable(table)
-    score += getTouchPuntuation(amount_boxes)
-
-print("Score-> {}".format(score))"""
+solveGameWithGreedy(table, priority_best_score=False, debug=True)
 
 # Peso = (cantidad de fichas un color) / (cantidad total de fichas)
 # Tocar las fichas de menor peso en orden ascendente
@@ -407,3 +468,14 @@ print("Score-> {}".format(score))"""
 
 # Elegir el color con mayor peso e intentar romper la mayor cantidad de las otras
 # fichas, buscando que todas las fichas del color elegido queden juntas
+
+def getSizeBoxesByColor(group_list):
+    size_groups_by_color = {}
+
+    for group in group_list:
+        color_number = group.colorNumber
+        if color_number in size_groups_by_color.keys():
+            size_groups_by_color[color_number] = (size_groups_by_color[color_number] + len(group.positions))
+        else: size_groups_by_color[color_number] = len(group.positions)
+
+    return  size_groups_by_color
