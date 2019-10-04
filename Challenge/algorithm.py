@@ -3,9 +3,10 @@
 import random
 from builtins import print
 import sys
-
 import numpy
 import math
+from tkinter import *
+
 
 def generateTable(n, n_colors):
     print("Initializing table...")
@@ -35,19 +36,19 @@ def copyTable(table):
 
 
 class Movement():
-    def __init__(self, previousPos, currentPos):
+    def _init_(self, previousPos, currentPos):
         self.previousPos = previousPos
         self.currentPos = currentPos
 
-    def __str__(self):
+    def _str_(self):
         print("current: {}".format(self.currentPos), end=" ")
 
 class ColorGroup():
-    def __init__(self, colorNumber, positions):
+    def _init_(self, colorNumber, positions):
         self.positions = positions
         self.colorNumber = colorNumber
 
-    def __str__(self):
+    def _str_(self):
         print("color:", self.colorNumber, ", size: ", len(self.positions), "\npositions-> ", end="")
         for position in self.positions:
             print(position, end=" ")
@@ -213,7 +214,7 @@ def getTouchPuntuation(N):
     return N * (N - 1)
 
 
-# Solving game
+# Utilities play the game
 def getValidGroups(group_list):
     valid_groups = []
     for group in group_list:
@@ -270,7 +271,7 @@ def getAmountOfSingletons(group_list):
     return singletons_amount
 
 
-# Greedy collection tools
+# Hill Climbing collection tools
 def getLargerGroupIndexAndPosition(group_list):
 
     position = -1
@@ -283,9 +284,12 @@ def getLargerGroupIndexAndPosition(group_list):
 
     return position
 
-def solveGameWithGreedy(table, priority_best_score, debug):
+def solveGameWithHC(table, priority_best_score, debug):
 
     play_list = []
+
+    best_score = 0
+    minimum_singletons = sys.maxsize
 
     if priority_best_score:
         best_score = 0
@@ -298,7 +302,7 @@ def solveGameWithGreedy(table, priority_best_score, debug):
 
                 game_state = getGameState(makeGroups(table), best_score, debug=debug)
                 if game_state == 0 or game_state == 1:
-                    return play_list
+                    break
 
     else:
         while True:
@@ -309,27 +313,35 @@ def solveGameWithGreedy(table, priority_best_score, debug):
 
             for group in group_list:
                 table_copy = copyTable(table)
-                touchPosition(table_copy, group.positions[0], debug=True)
+                touchPosition(table_copy, group.positions[0], debug)
 
                 singletons = getAmountOfSingletons(makeGroups(table_copy))
                 if singletons < minimum_singletons:
                     minimum_singletons = singletons
                     movement = group.positions[0]
 
-                game_state = getGameState(makeGroups(table_copy), minimum_singletons, debug=debug)
+                game_state = getGameState(makeGroups(table_copy), minimum_singletons, debug)
                 if game_state == 0 or game_state == 1:
-                    return play_list
+                    break
 
             if movement != -1:
                 touchPosition(table, movement, False)
                 play_list.append(movement)
 
+    fitness_value = best_score
+    if fitness_value == 0:
+        fitness_value = minimum_singletons
 
-# Genetic algorithm
+    print("Hill Climbing\nBest solution {}, score = {}".format(play_list, fitness_value))
+    return play_list, fitness_value
+
+
+
+# Genetic algorithm collection tools
 def createInitialPopulation(group_list):
     print("\nCreating initial population", end=" ")
     valid_groups = getValidGroups(group_list)
-    population_amount = math.ceil(len(valid_groups) * 0.5)
+    population_amount = math.ceil(len(valid_groups) * 1)
 
     initial_population = []
     for i in range(population_amount):
@@ -426,6 +438,7 @@ def solveGameWithGA(table, n_population, n_generations, n_projections, is_score_
 
     best_general_play_list.append(best_initial_individual)
     touchPosition(table, best_initial_individual, debug) # Set table current status
+    printTable(table)
 
     while getGameState(makeGroups(table), 0, debug=debug) == -1:
         for i in range(n_population + 1):
@@ -446,21 +459,70 @@ def solveGameWithGA(table, n_population, n_generations, n_projections, is_score_
                 next_movement = best__play_list_population[0]
                 best_general_play_list.append(next_movement)  # Add only the first movement
 
-                best_fitness += touchPosition(table, next_movement, debug=debug)  # Set score and table current status
+                best_fitness += touchPosition(table, next_movement, debug=debug) # Set score and table current status
                 if debug: print("\nBest so far -> {} with: {} points".format(best_general_play_list, best_fitness))
 
 
-    printGameState(table, best_general_play_list, fitness_val)
+    print("GA\nBest solution {}, score = {}".format(best_general_play_list, fitness_val))
+
+
+
+#Simulated anneling algorithm collections tools
+def generateState(table, debug):
+    table_copy = copyTable(table)
+    group_list = makeGroups(table_copy)
+    initial_state = []
+
+    while getGameState(group_list, -1, debug) == -1 :
+        random_group_index = random.randint(0, len(group_list) - 1)
+        initial_state.append(group_list[random_group_index].positions[0])
+        touchPosition(table_copy, group_list.pop(random_group_index).positions[0], False)
+        group_list = makeGroups(table_copy)
+
+    return initial_state
+
+def metropolisAlgorithm(cost, new_cost, T):
+    if new_cost < cost: return 1
+    else: return  numpy.exp(- (new_cost - cost) / T)
+
+def solveGameUsingSA(table, is_score_priority, T, decrease_factor, max_steps, debug):
+    state = generateState(table, debug)
+    cost = getFitnessAndHighLights(table, [state], is_score_priority)[0]
+
+    states = [state]
+    costs = [cost]
+
+    while T > 0.001:
+
+        for step in range(max_steps):
+            new_state = generateState(table, debug)
+            new_cost = getFitnessAndHighLights(table, [new_state], is_score_priority)[0]
+
+
+            if metropolisAlgorithm(cost, new_cost, T) > random.random():
+                state, cost = new_state, new_cost
+                states.append(state)
+                costs.append(cost)
+
+        T *= decrease_factor
+
+
+    best_solution_index = costs.index(min(costs))
+    print("SA\nBest solution {}, score = {}".format(states[best_solution_index], costs[best_solution_index]))
+
+    return states[best_solution_index]
+
 
 
 # TESTING
 table = ([2, 2, 1, 1], [2, 2, 1, 1], [1, 1, 1, 1], [2, 1, 2, 2])
 printTable(table)
-# table = generateTable(5, 5)
 
-#solveGameWithGA(table, n_population=2, n_generations=5, n_projections=20, is_score_priority=False, debug=False)
 
-solveGameWithGreedy(table, priority_best_score=False, debug=True)
+solveGameWithHC(copyTable(table), priority_best_score=True, debug=False)
+solveGameUsingSA(copyTable(table), True, 100, .98, 1, False)
+solveGameWithGA(copyTable(table), n_population=10, n_generations=50, n_projections=20, is_score_priority=True, debug=True)
+
 
 # Peso = (cantidad de fichas un color) / (cantidad total de fichas)
 # Tocar las fichas de menor peso en orden ascendente
