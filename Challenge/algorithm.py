@@ -171,7 +171,6 @@ def touchPosition(table, position, debug):
 
         if debug: printTable(table)
         gravityEffect(table)
-        if debug: printTable(table)
         shiftToTheRight(table)
         if debug: printTable(table)
 
@@ -284,11 +283,11 @@ def getLargerGroupIndexAndPosition(group_list):
 
     return position
 
-def solveGameWithHC(table, priority_best_score, debug):
+def solveGameWithHC(table, is_score_priority, debug):
     play_list = []
 
     best_score = 0
-    if priority_best_score:
+    if is_score_priority:
         group_list = makeGroups(table)
 
         while getGameState(group_list, -1, False) == -1:
@@ -319,14 +318,9 @@ def solveGameWithHC(table, priority_best_score, debug):
                 touchPosition(table, movement, False)
                 play_list.append(movement)
 
+    fitness_value = best_score if is_score_priority else getAmountOfSingletons(makeGroups(table))
 
-    fitness_value = best_score
-    if fitness_value == 0:
-        fitness_value = getAmountOfSingletons(makeGroups(table))
-
-    print("Hill Climbing\nBest solution -> {},".format(play_list),
-          ("score= {}" if priority_best_score else "singletons= {}").format(fitness_value))
-
+    print("Hill Climbing\nBest solution -> {},".format(play_list), ("score= {}" if is_score_priority else "singletons= {}").format(fitness_value))
     return play_list, fitness_value
 
 
@@ -464,14 +458,14 @@ def solveGameWithGA(table, n_population, n_generations, n_projections, is_score_
 #Simulated anneling algorithm collections tools
 def generateState(table, debug):
     table_copy = copyTable(table)
-    group_list = makeGroups(table_copy)
+    group_list = getValidGroups(makeGroups(table_copy))
     initial_state = []
 
     while getGameState(group_list, -1, debug) == -1 :
         random_group_index = random.randint(0, len(group_list) - 1)
         initial_state.append(group_list[random_group_index].positions[0])
         touchPosition(table_copy, group_list.pop(random_group_index).positions[0], False)
-        group_list = makeGroups(table_copy)
+        group_list = getValidGroups(makeGroups(table_copy))
 
     return initial_state
 
@@ -487,11 +481,9 @@ def solveGameUsingSA(table, is_score_priority, T, decrease_factor, max_steps, de
     costs = [cost]
 
     while T > 0.001:
-
         for step in range(max_steps):
             new_state = generateState(table, debug)
             new_cost = getFitnessAndHighLights(table, [new_state], is_score_priority)[0]
-
 
             if metropolisAlgorithm(cost, new_cost, T) > random.random():
                 state, cost = new_state, new_cost
@@ -500,10 +492,9 @@ def solveGameUsingSA(table, is_score_priority, T, decrease_factor, max_steps, de
 
         T *= decrease_factor
 
+    best_solution_index = costs.index(max(costs)) if is_score_priority else costs.index(min(costs))
 
-    best_solution_index = costs.index(min(costs))
-    print("SA\nBest solution {}, score = {}".format(states[best_solution_index], costs[best_solution_index]))
-
+    print("Simulate Anneling\nBest solution -> {},".format(states[best_solution_index]), ("score= {}" if is_score_priority else "singletons= {}").format(costs[best_solution_index]))
     return states[best_solution_index]
 
 
@@ -513,8 +504,9 @@ table = ([2, 3, 4, 5], [1, 4, 2, 5], [1, 1, 1, 1], [2, 1, 2, 2])
 printTable(table)
 
 
-solveGameWithHC(copyTable(table), priority_best_score=False, debug=False)
-#solveGameUsingSA(copyTable(table), True, 100, .98, 1, False)
+solveGameWithHC(table=copyTable(table), is_score_priority=False, debug=False)
+
+solveGameUsingSA(table=copyTable(table), is_score_priority=False, T=100, decrease_factor=.98, max_steps=4, debug=False)
 #solveGameWithGA(copyTable(table), n_population=10, n_generations=50, n_projections=20, is_score_priority=True, debug=True)
 
 
