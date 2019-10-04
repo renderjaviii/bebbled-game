@@ -243,19 +243,6 @@ def getGameState(group_list, score, debug):
 
     return -1
 
-def printGameState(table, movements_list, score):
-    if gameWon(makeGroups(table)):
-        print("WIN!!!")
-    elif hasOnlySingletons(makeGroups(table)):
-        print("WIN with singletons :/")
-
-    print("SCORE:", score)
-    printTable(table)
-    print("Play list |-", end="")
-
-    for movement in movements_list:
-        print("-> {} ".format(movement), end="")
-
 def playGameUsingPlayList(table, playlist):
     score = 0
     for position in playlist:
@@ -326,8 +313,8 @@ def solveGameWithHC(table, is_score_priority, debug):
 
 
 # Genetic algorithm collection tools
-def createInitialPopulation(group_list):
-    print("\nCreating initial population", end=" ")
+def createInitialPopulation(group_list, debug):
+    if debug: print("\nCreating initial population", end=" ")
     valid_groups = getValidGroups(group_list)
     population_amount = math.ceil(len(valid_groups) * 1)
 
@@ -342,9 +329,9 @@ def createInitialPopulation(group_list):
             valid_groups.pop(group_index)
 
     if len(initial_population) == 0: # Repeat process if dont have individuals, infinite possible cycle
-        createInitialPopulation(group_list)
+        createInitialPopulation(group_list, debug)
 
-    print("-> {}".format(initial_population))
+    if debug: print("-> {}".format(initial_population))
     return initial_population
 
 def generateNextState(table):
@@ -366,13 +353,10 @@ def projectGame(table, initial_states, n_projections, n_attempts, debug):
 
     play_list = []
     for time in range(n_projections):
-        if debug: print("Projection # {}".format(time + 1))
-
         table_tmp = copyTable(table_copy)
         movement_list = initial_states.copy()
 
         for attempt in range(n_attempts):
-            if debug: print("Attempt -> {}".format(attempt + 1))
             table_position = generateNextState(table_tmp)
 
             if table_position != -1:
@@ -384,26 +368,23 @@ def projectGame(table, initial_states, n_projections, n_attempts, debug):
 
     return play_list
 
-def getFitnessAndHighLights(table, play_list, is_score_priority):
+def getFitnessAndHighLights(table, play_lists, is_score_priority):
     highlights = []
     max_score = -1
     minimum_singletons = sys.maxsize
 
-    for time in play_list:
+    for time in play_lists:
         table_copy, score = playGameUsingPlayList(copyTable(table), time)
 
         if is_score_priority:
-            if score >= max_score:
+            if score > max_score:
                 max_score = score
-                if len(time) < len(highlights) or len(highlights) == 0:  # The minimum moves ever ?
-                    highlights = time
+                highlights = time
         else:
             singletons = getAmountOfSingletons(makeGroups(table_copy))
-
-            if singletons <= minimum_singletons:
+            if singletons < minimum_singletons:
                 minimum_singletons = singletons
-                if len(time) < len(highlights) or len(highlights) == 0:  # The minimum moves ever ?
-                    highlights = time
+                highlights = time
 
     fitness_value = max_score
     if max_score == -1:
@@ -411,57 +392,63 @@ def getFitnessAndHighLights(table, play_list, is_score_priority):
 
     return fitness_value, highlights
 
-def solveGameWithGA(table, n_population, n_generations, n_projections, is_score_priority, debug):
+def solveGameWithGA(table, n_generations, n_projections, is_score_priority, debug):
+    initial_population = createInitialPopulation(makeGroups(table), debug)
 
     best_general_play_list = []
-    best_fitness = -1
-    for initial_individual in createInitialPopulation(makeGroups(table)):
-        possibles_play_list = projectGame(table, [initial_individual], n_projections, n_generations, debug=debug)
-        fitness_val = getFitnessAndHighLights(table, possibles_play_list, is_score_priority)[0]
-        if fitness_val > best_fitness:
-            best_fitness = fitness_val
-            best_initial_individual = initial_individual
+    score = 0
 
-    if debug: print("The initial individual is: {}, with {} points".format(best_initial_individual, best_fitness))
+    n_population = 1
+    while getGameState(makeGroups(table), -1, False) == -1:
+        if debug: print("\nPopulation #{}".format(n_population))
 
-    best_general_play_list.append(best_initial_individual)
-    touchPosition(table, best_initial_individual, debug) # Set table current status
-    printTable(table)
+        population_play_lists = []
 
-    while getGameState(makeGroups(table), 0, debug=debug) == -1:
-        for i in range(n_population + 1):
-            if debug: print("\nPopulation #{}\n".format(i + 1))
-            populations_generations = []
+        for initial in initial_population:
+            table_copy = copyTable(table)
+            touchPosition(table_copy, initial, False)
 
             for j in range(n_generations):
-                if debug: print("Descendant # {} of the previous generation\nScore inherited: {}\nPlay list inherited -> {}"
-                                .format(j + 1, best_fitness, best_general_play_list))
+                play_lists = projectGame(table_copy, [], n_projections, n_generations, debug=debug)
 
-                play_lists = projectGame(table, [], n_projections, n_generations, debug=debug) # Projections
                 for play_list in play_lists:
-                    if play_list not in populations_generations:
-                        populations_generations.append(play_list)
+                    tmp = [initial] + play_list[:]
+                    if tmp not in population_play_lists:
+                        population_play_lists.append([initial] + play_list[:])
 
-            if len(populations_generations) > 0:
-                best__play_list_population = getFitnessAndHighLights(copyTable(table), populations_generations, is_score_priority)[1]
-                next_movement = best__play_list_population[0]
-                best_general_play_list.append(next_movement)  # Add only the first movement
+        for j in range(n_generations):
+            play_lists = projectGame(table, [], n_projections, n_generations, debug=debug)
+            for play_list in play_lists:
+                if play_list not in population_play_lists:
+                    population_play_lists.append(play_list)
 
-                best_fitness += touchPosition(table, next_movement, debug=debug) # Set score and table current status
-                if debug: print("\nBest so far -> {} with: {} points".format(best_general_play_list, best_fitness))
+        if len(population_play_lists) > 0:
+            best__play_list_population = getFitnessAndHighLights(table, population_play_lists, is_score_priority)[1]
 
+            next_movement = best__play_list_population[0]
+            best_general_play_list.append(next_movement)  # Add only the first movement
+            score += touchPosition(table, next_movement, debug=debug) # Set score and table current status
 
-    print("GA\nBest solution {}, score = {}".format(best_general_play_list, fitness_val))
+            if debug: print("\nPlay list so far -> {}".format(best_general_play_list))
+
+        if n_population == 1:
+            initial_population.clear()
+
+        n_population += 1
+
+    best_fitness = score if is_score_priority else getAmountOfSingletons(makeGroups(table))
+
+    print("Genetic Algorithm\nBest solution {},".format(best_general_play_list), ("score= {}" if is_score_priority else "singletons= {}").format(best_fitness))
 
 
 
 #Simulated anneling algorithm collections tools
-def generateState(table, debug):
+def generateState(table):
     table_copy = copyTable(table)
     group_list = getValidGroups(makeGroups(table_copy))
     initial_state = []
 
-    while getGameState(group_list, -1, debug) == -1 :
+    while getGameState(group_list, -1, False) == -1 :
         random_group_index = random.randint(0, len(group_list) - 1)
         initial_state.append(group_list[random_group_index].positions[0])
         touchPosition(table_copy, group_list.pop(random_group_index).positions[0], False)
@@ -474,7 +461,7 @@ def metropolisAlgorithm(cost, new_cost, T):
     else: return  numpy.exp(- (new_cost - cost) / T)
 
 def solveGameUsingSA(table, is_score_priority, T, decrease_factor, max_steps, debug):
-    state = generateState(table, debug)
+    state = generateState(table)
     cost = getFitnessAndHighLights(table, [state], is_score_priority)[0]
 
     states = [state]
@@ -482,7 +469,7 @@ def solveGameUsingSA(table, is_score_priority, T, decrease_factor, max_steps, de
 
     while T > 0.001:
         for step in range(max_steps):
-            new_state = generateState(table, debug)
+            new_state = generateState(table)
             new_cost = getFitnessAndHighLights(table, [new_state], is_score_priority)[0]
 
             if metropolisAlgorithm(cost, new_cost, T) > random.random():
@@ -500,14 +487,12 @@ def solveGameUsingSA(table, is_score_priority, T, decrease_factor, max_steps, de
 
 
 # TESTING
-table = ([2, 3, 4, 5], [1, 4, 2, 5], [1, 1, 1, 1], [2, 1, 2, 2])
-printTable(table)
+# table = ([1, 1, 2, 2], [1, 1, 2, 2], [2, 2, 2, 2], [1, 2, 1, 1])
+table = generateTable(5, 5)
 
-
-solveGameWithHC(table=copyTable(table), is_score_priority=False, debug=False)
-
-solveGameUsingSA(table=copyTable(table), is_score_priority=False, T=100, decrease_factor=.98, max_steps=4, debug=False)
-#solveGameWithGA(copyTable(table), n_population=10, n_generations=50, n_projections=20, is_score_priority=True, debug=True)
+solveGameWithHC(table=copyTable(table), is_score_priority=True, debug=False)
+solveGameUsingSA(table=copyTable(table), is_score_priority=True, T=100, decrease_factor=.98, max_steps=2, debug=True)
+solveGameWithGA(copyTable(table), n_generations=50, n_projections=20, is_score_priority=True, debug=False)
 
 
 # Peso = (cantidad de fichas un color) / (cantidad total de fichas)
