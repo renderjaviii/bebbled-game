@@ -322,10 +322,10 @@ def solveGameWithHC(table, priority_best_score, debug):
 
     fitness_value = best_score
     if fitness_value == 0:
-        fitness_value = minimum_singletons
+        fitness_value = getAmountOfSingletons(makeGroups(table))
 
-    print("Hill Climbing\nBest solution {}".format(play_list),
-          (", score= {}" if priority_best_score else "singletons= {}").format(fitness_value))
+    print("Hill Climbing\nBest solution -> {},".format(play_list),
+          ("score= {}" if priority_best_score else "singletons= {}").format(fitness_value))
 
     return play_list, fitness_value
 
@@ -509,7 +509,7 @@ def solveGameUsingSA(table, is_score_priority, T, decrease_factor, max_steps, de
 
 
 # TESTING
-table = ([2, 2, 1, 1], [2, 2, 1, 1], [1, 1, 1, 1], [2, 1, 2, 2])
+table = ([2, 3, 4, 5], [1, 4, 2, 5], [1, 1, 1, 1], [2, 1, 2, 2])
 printTable(table)
 
 
