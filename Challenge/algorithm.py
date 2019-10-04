@@ -35,20 +35,21 @@ def copyTable(table):
     return table_copy
 
 
-class Movement():
-    def _init_(self, previousPos, currentPos):
+class Movement:
+
+    def __init__(self, previousPos, currentPos):
         self.previousPos = previousPos
         self.currentPos = currentPos
 
     def _str_(self):
         print("current: {}".format(self.currentPos), end=" ")
 
-class ColorGroup():
-    def _init_(self, colorNumber, positions):
+class ColorGroup:
+    def __init__(self, colorNumber, positions):
         self.positions = positions
         self.colorNumber = colorNumber
 
-    def _str_(self):
+    def __str__(self):
         print("color:", self.colorNumber, ", size: ", len(self.positions), "\npositions-> ", end="")
         for position in self.positions:
             print(position, end=" ")
@@ -285,7 +286,6 @@ def getLargerGroupIndexAndPosition(group_list):
     return position
 
 def solveGameWithHC(table, priority_best_score, debug):
-
     play_list = []
 
     best_score = 0
@@ -520,8 +520,8 @@ printTable(table)
 
 
 solveGameWithHC(copyTable(table), priority_best_score=True, debug=False)
-solveGameUsingSA(copyTable(table), True, 100, .98, 1, False)
-solveGameWithGA(copyTable(table), n_population=10, n_generations=50, n_projections=20, is_score_priority=True, debug=True)
+#solveGameUsingSA(copyTable(table), True, 100, .98, 1, False)
+#solveGameWithGA(copyTable(table), n_population=10, n_generations=50, n_projections=20, is_score_priority=True, debug=True)
 
 
 # Peso = (cantidad de fichas un color) / (cantidad total de fichas)
