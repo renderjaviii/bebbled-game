@@ -7,7 +7,6 @@ import numpy
 import math
 from tkinter import *
 
-
 def generateTable(n, n_colors):
     print("Initializing table...")
     table = numpy.zeros((n, n))
@@ -289,28 +288,24 @@ def solveGameWithHC(table, priority_best_score, debug):
     play_list = []
 
     best_score = 0
-    minimum_singletons = sys.maxsize
-
     if priority_best_score:
-        best_score = 0
-        while True:
-            larger_group_position = getLargerGroupIndexAndPosition(makeGroups(table))
+        group_list = makeGroups(table)
+
+        while getGameState(group_list, -1, False) == -1:
+            larger_group_position = getLargerGroupIndexAndPosition(group_list)
 
             if larger_group_position != -1:
                 best_score += touchPosition(table, larger_group_position, debug=debug)
                 play_list.append(larger_group_position)
 
-                game_state = getGameState(makeGroups(table), best_score, debug=debug)
-                if game_state == 0 or game_state == 1:
-                    break
-
-    else:
-        while True:
             group_list = makeGroups(table)
 
+    else:
+        while getGameState(makeGroups(table), -1, False) == -1:
             minimum_singletons = sys.maxsize
-            movement = -1
+            group_list = getValidGroups(makeGroups(table))
 
+            movement = -1
             for group in group_list:
                 table_copy = copyTable(table)
                 touchPosition(table_copy, group.positions[0], debug)
@@ -320,19 +315,18 @@ def solveGameWithHC(table, priority_best_score, debug):
                     minimum_singletons = singletons
                     movement = group.positions[0]
 
-                game_state = getGameState(makeGroups(table_copy), minimum_singletons, debug)
-                if game_state == 0 or game_state == 1:
-                    break
-
             if movement != -1:
                 touchPosition(table, movement, False)
                 play_list.append(movement)
+
 
     fitness_value = best_score
     if fitness_value == 0:
         fitness_value = minimum_singletons
 
-    print("Hill Climbing\nBest solution {}, score = {}".format(play_list, fitness_value))
+    print("Hill Climbing\nBest solution {}".format(play_list),
+          (", score= {}" if priority_best_score else "singletons= {}").format(fitness_value))
+
     return play_list, fitness_value
 
 
@@ -519,7 +513,7 @@ table = ([2, 2, 1, 1], [2, 2, 1, 1], [1, 1, 1, 1], [2, 1, 2, 2])
 printTable(table)
 
 
-solveGameWithHC(copyTable(table), priority_best_score=True, debug=False)
+solveGameWithHC(copyTable(table), priority_best_score=False, debug=False)
 #solveGameUsingSA(copyTable(table), True, 100, .98, 1, False)
 #solveGameWithGA(copyTable(table), n_population=10, n_generations=50, n_projections=20, is_score_priority=True, debug=True)
 
