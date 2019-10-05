@@ -485,7 +485,6 @@ def solveGameUsingSA(table, is_score_priority, T, decrease_factor, max_steps, de
     return states[best_solution_index]
 
 
-
 # TESTING
 # table = ([1, 1, 2, 2], [1, 1, 2, 2], [2, 2, 2, 2], [1, 2, 1, 1])
 table = generateTable(5, 5)
@@ -493,22 +492,3 @@ table = generateTable(5, 5)
 solveGameWithHC(table=copyTable(table), is_score_priority=True, debug=False)
 solveGameUsingSA(table=copyTable(table), is_score_priority=True, T=100, decrease_factor=.98, max_steps=2, debug=True)
 solveGameWithGA(copyTable(table), n_generations=50, n_projections=20, is_score_priority=True, debug=False)
-
-
-# Peso = (cantidad de fichas un color) / (cantidad total de fichas)
-# Tocar las fichas de menor peso en orden ascendente
-# Tocar las fichas que estén imposibilitando la unión de 2 grupos que formarían un gran peso
-
-# Elegir el color con mayor peso e intentar romper la mayor cantidad de las otras
-# fichas, buscando que todas las fichas del color elegido queden juntas
-
-def getSizeBoxesByColor(group_list):
-    size_groups_by_color = {}
-
-    for group in group_list:
-        color_number = group.colorNumber
-        if color_number in size_groups_by_color.keys():
-            size_groups_by_color[color_number] = (size_groups_by_color[color_number] + len(group.positions))
-        else: size_groups_by_color[color_number] = len(group.positions)
-
-    return  size_groups_by_color
